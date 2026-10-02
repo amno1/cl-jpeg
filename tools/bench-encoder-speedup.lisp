@@ -1,0 +1,40 @@
+(in-package :cl-user)
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (asdf:load-asd "/home/arthur/repos/cl/cl-jpeg-avx512/cl-jpeg.asd")
+  (asdf:load-system :cl-jpeg))
+
+(defun bench-encoder (dim reps)
+  (let* ((w dim) (h dim)
+         (img (make-array (* w h 3) :element-type '(unsigned-byte 8)))
+         (null-stream (make-broadcast-stream)))
+    ;; Fill with deterministic pattern
+    (dotimes (y h)
+      (dotimes (x w)
+        (let ((idx (* (+ (* y w) x) 3)))
+          (setf (aref img idx) (mod x 256)
+                (aref img (1+ idx)) (mod y 256)
+                (aref img (+ idx 2)) (mod (+ x y) 256)))))
+    ;; Warm up
+    (dotimes (i 2)
+      (jpeg:encode-image-stream null-stream img 3 h w))
+    (format t "Benchmarking ~Dx~D encode (~D reps):~%" w h reps)
+    (let ((start (get-internal-real-time)))
+      (dotimes (i reps)
+        (jpeg:encode-image-stream null-stream img 3 h w))
+      (let* ((elapsed (/ (- (get-internal-real-time) start) internal-time-units-per-second))
+             (per-img (/ elapsed reps))
+             (mpix-s (/ (* w h reps 1e-6) elapsed)))
+        (format t "  Total time: ~,3F s | Per image: ~,2F ms | Throughput: ~,1F MPix/s~%"
+                elapsed (* per-img 1000.0) mpix-s)
+        mpix-s))))
+
+(defun main ()
+  (format t "====================================================================~%")
+  (format t "  CL-JPEG ENCODER SPEED BENCHMARK~%")
+  (format t "====================================================================~%")
+  (bench-encoder 512 20)
+  (bench-encoder 1024 10)
+  (bench-encoder 2048 3))
+
+(main)

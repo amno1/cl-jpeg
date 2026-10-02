@@ -1,0 +1,13 @@
+(require :sb-simd)
+(in-package :cl-user)
+(use-package :sb-simd-avx2)
+
+(let* ((r0 (make-s32.8 10 11 12 13 14 15 16 17))
+       (r1 (make-s32.8 20 21 22 23 24 25 26 27))
+       (packed (s16.16-packs r0 r1))
+       (perm (s16.16! (f64.4-permute4x64 (f64.4! packed) #xD8)))
+       (row0 (s16.8-from-s16.16 perm 0))
+       (row1 (s16.8-from-s16.16 perm 1)))
+  (format t "Row 0: ~a~%" row0)
+  (format t "Row 1: ~a~%" row1))
+(sb-ext:exit)

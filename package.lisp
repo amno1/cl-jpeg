@@ -13,4 +13,12 @@
 	   #:descriptor-source-cache
 	   #:read-dht
 	   #:inverse-llm-dct #:llm-dct
-	   #:make-descriptor #:descriptor-byte-reader))
+	   #:make-descriptor #:descriptor-byte-reader
+	   ;; SIMD controls & kernels
+	   #:*use-simd*
+	   #:*chroma-subsampling*
+	   #:inverse-colorspace-convert-simd
+	   #:llm-dct-simd
+	   #:inverse-llm-dct-simd
+	   #:*simd-color-chunks-processed*))
+

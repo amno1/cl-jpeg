@@ -1,0 +1,31 @@
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (load "~/quicklisp/setup.lisp")
+  (funcall (find-symbol "QUICKLOAD" "QL") :flexi-streams :silent t))
+
+(require :asdf)
+(push "/home/arthur/repos/cl/cl-jpeg-avx512/" asdf:*central-registry*)
+(asdf:load-system :cl-jpeg)
+
+(in-package :cl-user)
+
+(defun encode-test (mode)
+  (setf jpeg:*use-simd* mode)
+  (let* ((w 512) (h 512)
+         (img (make-array (* w h 3) :element-type '(unsigned-byte 8))))
+    (dotimes (i (length img))
+      (setf (aref img i) (mod (* (1+ i) 37) 256)))
+    (let ((bytes (flexi-streams:with-output-to-sequence (s)
+                   (jpeg:encode-image-stream s img 3 h w))))
+      (list (length bytes) (sxhash bytes)))))
+
+(let ((res-off (encode-test :off))
+      (res-auto (encode-test :auto))
+      (res-on (encode-test :on)))
+  (format t "Mode :off  -> len: ~D, hash: ~D~%" (first res-off) (second res-off))
+  (format t "Mode :auto -> len: ~D, hash: ~D~%" (first res-auto) (second res-auto))
+  (format t "Mode :on   -> len: ~D, hash: ~D~%" (first res-on) (second res-on))
+  (assert (equal res-off res-auto))
+  (assert (equal res-off res-on))
+  (format t "ALL MODES BYTE IDENTICAL! SUCCESS!~%"))
+
+(sb-ext:exit)

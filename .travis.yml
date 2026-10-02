@@ -32,6 +32,8 @@ install:
     fi
 
 script:
+  - python3 tools/audit-symbol-shadowing.py jpeg.lisp simd.lisp io.lisp package.lisp
   - cl -e '(ql:quickload :cl-jpeg-tests)
            (unless (fiveam:run! :cl-jpeg :print-names nil)
              (uiop:quit 1))'
+

@@ -1,0 +1,11 @@
+(require :sb-simd)
+(in-package :cl-user)
+(use-package :sb-simd-avx2)
+
+(let* ((r0 (make-s32.8 10 11 12 13 14 15 16 17))
+       (r1 (make-s32.8 20 21 22 23 24 25 26 27))
+       (packed (s16.16-packs r0 r1)))
+  (format t "Raw packed: ~a~%" packed)
+  (let ((perm (s16.16! (s64.4-permute (s64.4! packed) #xD8))))
+    (format t "Permuted: ~a~%" perm)))
+(sb-ext:exit)

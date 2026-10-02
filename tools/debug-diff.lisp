@@ -1,0 +1,25 @@
+(require :asdf)
+(push "/home/arthur/repos/cl/cl-jpeg-avx512/" asdf:*central-registry*)
+(asdf:load-system :cl-jpeg)
+(load "tools/test-layout-b.lisp")
+
+(in-package :jpeg)
+
+(let* ((nblocks 1)
+       (stride (* nblocks 8))
+       (buf1 (make-array 64 :element-type 'sint16))
+       (buf2 (make-array 64 :element-type 'sint16)))
+  (dotimes (i 64)
+    (let ((v (- (mod (* (1+ i) 1664525) 256) 128)))
+      (setf (aref buf1 i) v
+            (aref buf2 i) v)))
+  (llm-dct buf1 0 1)
+  (simd-dct-block-layout-b buf2 0 1)
+  (format t "Scalar Block 0:~%")
+  (dotimes (r 8)
+    (format t "  Row ~d: ~a~%" r (loop for c below 8 collect (aref buf1 (+ (* r 8) c)))))
+  (format t "SIMD Block 0:~%")
+  (dotimes (r 8)
+    (format t "  Row ~d: ~a~%" r (loop for c below 8 collect (aref buf2 (+ (* r 8) c))))))
+
+(sb-ext:exit)

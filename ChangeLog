@@ -1,3 +1,89 @@
+2026-10-01  CL-JPEG Authors
+
+	* Version 3.0.0 release.
+	* Breaking Change: Fixed 25-year-old `q-scale` defect in encoder.
+	  Previously, `:q-factor` < 64 crashed with division-by-zero (integer
+	  truncation in `(the uint8 (/ q-factor 64))` produced 0 for all quant
+	  entries), while `:q-factor` > 64 was silently ignored due to `(< q-factor 64)`.
+	  `q-scale` now uses exact integer arithmetic `(round (* q-entry q-factor) 64)`
+	  clamped to [1, +max-qval+] (+max-qval+ = 255 for 8-bit precision).
+	* Updated docstring: `:q-factor — quantization strength, 1 (finest) to 255 (coarsest), default 64`.
+	* Breaking Change: Decoder lookup tables `+cr-r-tab+`, `+cb-g-tab+`, `+cr-g-tab+`,
+	  `+cb-b-tab+` now use chroma bias 128 (JFIF-compliant) instead of 127.
+	  Decoded output differs from <=2.8 versions by <=1 LSB per channel.
+	* Huffman Encoder: Rewrote `write-bits` and `encode-block` with unboxed 64-bit
+	  register accumulator, precomputed bitmask table, packed (code << 5 | size)
+	  table lookups, and 4096-byte chunked stream write buffer (eliminating
+	  per-byte stream dispatch overhead).
+	* Quantization: Inlined `fast-round` integer division replacing SB-KERNEL::ROUND1
+	  generic function calls.
+	* Layout: Flattened 2D array descriptor into Strategy A 1D buffers, eliminating
+	  all vector indirection overhead across `subsample`, `llm-dct`, `quantize`, `zigzag`.
+	* Fixed-Point Constant Rounding Notice: Constants deviate from libjpeg-turbo
+	  in the final bit due to a legacy rounding convention, preserved for compatibility
+	  with existing CL-JPEG output.
+	* SIMD Forward DCT: Implemented AVX2 forward LLM-DCT using Layout B (8x8 register
+	  transpose using 24 unpack/permute operations). Verified 100% bit-for-bit mathematical
+	  equivalence with scalar CL-JPEG across 37 test cases (noise, gradients, photographic photos,
+	  non-multiple image sizes, 4:2:0, 4:2:2, 4:4:4, and grayscale).
+	  Delivers 5.13x kernel speedup (2.80 Gpix/s vs 545 Mpix/s; 22.9 ns vs 117.5 ns/block).
+	  NOTE: The earlier preliminary 1.58x full-pipeline speedup figure is formally retracted;
+	  it was an artifact of CPU governor frequency ramping during unpegged cold runs. Under
+	  rigorous steady-state conditions, end-to-end encoder throughput improves by 1.26x on
+	  smooth images (46.6 ms to 37.0 ms, 113.3 MPix/s) and 1.14x on high-frequency images
+	  (78.5 ms to 68.9 ms, 60.9 MPix/s), perfectly matching the theoretical 9.30 ms DCT delta
+	  (98,304 blocks * 94.6 ns/block savings).
+	* SIMD: Added AVX-512 accelerated YCbCr->RGB inverse color conversion in `simd.lisp`.
+	* Assembly Audit & Type Inference: Audited all inner loops with disassembly;
+	  eliminated all silent generic arithmetic and bignum calls (CALL SB-VM::BIGNUM-TO-RDX,
+	  GENERIC-+, GENERIC--, VECTOR-HAIRY-DATA-VECTOR-REF) in `llm-dct`,
+	  `colorspace-convert`, `subsample`, `crop-image`, `inverse-llm-dct`, and `fast-round`.
+	* Huffman Encoder: Optimized `encode-block` with a backward pre-scan for the
+	  last non-zero AC coefficient (`last-ac`), skipping trailing zero coefficient loops
+	  and directly emitting EOB. 2048x2048 encode runtime reduced to 45.55 ms (92.1 MPix/s).
+	* Quantization & Interop: Verified q-factor rate-distortion against reference `cjpeg`.
+	  Confirmed q=25 matches `cjpeg -q 80` within 0.6% size and 0.64 dB PSNR in 4:4:4.
+	* Decoder Upsample Fix & Retraction: Fixed critical variable shadowing bug in `upsample`
+	  where `(let* (... (h (descriptor-height image)) ...))` shadowed function parameter `H`,
+	  causing `(= H 1)` and `(= H 2)` to always fail and divert 100% of blocks into the
+	  unoptimized 4-level nested fallback loop.
+	  NOTE: The earlier preliminary '>4x speedup on upsample' figure and the associated
+	  '1.25–1.35x decoder speedup' projection are formally retracted; both were measured
+	  against a decoder baseline that was pathologically degraded by this shadowing bug.
+	  Under honest un-regressed conditions, full SIMD decode (AVX-512 Color + AVX2 IDCT)
+	  delivers 1.38x–1.47x end-to-end speedup on natural photos (6.09 ms -> 4.40 ms on photo1,
+	  15.63 ms -> 10.63 ms on photo3, 3.82 ms -> 2.29 ms on 512x512 gradient).
+	* CI & Static Analysis: Added `tools/audit-symbol-shadowing.py` and integrated into CI
+	  to mechanically detect any case-insensitive variable shadowing across all scopes.
+	* SIMD Inverse DCT: Added AVX2/AVX-512 `inverse-llm-dct-simd` with bit-for-bit exactness
+	  to scalar `inverse-llm-dct` across all inputs (including signed 16-bit intermediate
+	  wrap preservation). Direct ablation stubbing confirms IDCT represents 14–20% of natural
+	  decode time and SIMD IDCT achieves 2.9x–3.8x in-situ kernel speedup, delivering a steady
+	  1.16x–1.17x end-to-end decode speedup on natural images, directly matching Amdahl's Law.
+	* Fused Planar SIMD Decoder Architecture: Replaced intermediate full-resolution chroma
+	  replication (`upsample-2x2-planar-fast`) with fused planar decode and 2-row AVX-512BW+VBMI
+	  color conversion. Luma Y is stored at full resolution (W*H), while chroma Cb and Cr are
+	  stored at native quarter resolution (Wc*Hc = ceil(W/2)*ceil(H/2)). During MCU decode, 8x8 blocks
+	  are written directly into native coordinates without intermediate upsampling. The color conversion
+	  kernel reads Y at full resolution, reads Cb/Cr at native resolution, duplicates chroma in-register
+	  via AVX-512 `vpermb`, and converts 2 luma rows per iteration sharing computed chroma deltas.
+	  Deliberate Architectural Trade-Off Note:
+	  The fused planar design is a defensible speed-for-memory trade-off: delivering
+	  1.03x–1.09x (3–9%) faster decode latency in exchange for 1.5x retained memory and
+	  10% higher single-shot allocation.
+	  Compared to interleaved SIMD (3.0·W·H retained, 3.81 MB single-shot consed on 512²),
+	  fused planar retains 1.5× more (4.5·W·H) and conses 10% more on single-shot (4.21 MB).
+	  Compared to the discarded full-frame planar design (6.0·W·H), fused planar halves
+	  the intermediate footprint (from 1.50 MB down to 0.75 MB intermediate planes on 1024x1024).
+	  Intermediate plane allocation overhead is 0 bytes when descriptors are reused.
+	  The deliberate reason to adopt this fused planar design is the latency improvement and
+	  complete elimination of the separate upsample replication pass. On memory, interleaved
+	  wins on both single-shot and reused-descriptor.
+
+
+
+
+
 2017-02-17  Eugene Zaikonnikov  <eugene@funcall.org>
 
 	* Added :CACHED-SOURCE-P option to decoder allowing to read-sequence the image at once

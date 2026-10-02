@@ -1,0 +1,13 @@
+(require :asdf)
+(push "/home/arthur/repos/cl/cl-jpeg-avx512/" asdf:*central-registry*)
+(asdf:operate 'asdf:load-op :cl-jpeg :force t)
+
+(format t "~%=====================================================~%")
+(format t "cl-jpeg successfully built and loaded!~%")
+(format t "*use-simd*: ~A~%" jpeg:*use-simd*)
+(format t "*simd-encode-dct-p*: ~A~%" (symbol-value (find-symbol "*SIMD-ENCODE-DCT-P*" "JPEG")))
+(format t "*llm-dct-impl*: ~A~%" (symbol-value (find-symbol "*LLM-DCT-IMPL*" "JPEG")))
+(format t "*simd-decode-color-p*: ~A~%" (symbol-value (find-symbol "*SIMD-DECODE-COLOR-P*" "JPEG")))
+(format t "*inverse-colorspace-convert-impl*: ~A~%" (symbol-value (find-symbol "*INVERSE-COLORSPACE-CONVERT-IMPL*" "JPEG")))
+(format t "=====================================================~%")
+(sb-ext:exit)

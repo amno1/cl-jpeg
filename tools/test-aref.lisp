@@ -1,0 +1,11 @@
+(require :sb-simd)
+
+(let ((arr (make-array 32 :element-type '(signed-byte 16) :initial-element 42)))
+  (declare (type (simple-array (signed-byte 16) (*)) arr))
+  (let ((v8 (sb-simd-sse2:s16.8-aref arr 0))
+        (v16 (sb-simd-avx2:s16.16-aref arr 0)))
+    (format t "v8: ~a~%" v8)
+    (format t "v16: ~a~%" v16)
+    (setf (sb-simd-sse2:s16.8-aref arr 0) (sb-simd-sse2:s16.8 99))
+    (format t "arr[0..7]: ~a~%" (subseq arr 0 8))))
+(sb-ext:exit)

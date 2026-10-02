@@ -1,0 +1,40 @@
+(load "~/quicklisp/setup.lisp")
+(asdf:load-asd "/home/arthur/repos/cl/cl-jpeg-avx512/cl-jpeg.asd")
+(asdf:load-system :cl-jpeg)
+
+(in-package :jpeg)
+
+(defun bench-file (path reps &key simd idct-simd)
+  (let ((jpeg:*use-simd* (if simd :on :off))
+        (jpeg::*inverse-llm-dct-impl* (if idct-simd #'jpeg::inverse-llm-dct-simd nil)))
+    ;; Warmup
+    (dotimes (i 5) (jpeg:decode-image path))
+    (let ((best 1e9))
+      (dotimes (b 5)
+        (sb-ext:gc :full t)
+        (let ((t0 (get-internal-real-time)))
+          (dotimes (i reps)
+            (jpeg:decode-image path))
+          (let ((ms (* (/ (/ (- (get-internal-real-time) t0) (float internal-time-units-per-second)) reps) 1000.0)))
+            (when (< ms best) (setf best ms)))))
+      best)))
+
+(format t "~%========================================================================~%")
+(format t " DECODE BENCHMARK: q=64 (Prior Ablation baseline) vs q=25 (Dense AC)~%")
+(format t "========================================================================~%")
+(format t " File                    | Size (bytes) | Scalar IDCT | SIMD IDCT   | Speedup~%")
+(format t "-------------------------+--------------+-------------+-------------+--------~%")
+
+(dolist (item '(("/tmp/photo1_q64.jpg" 30)
+                ("/tmp/photo1_q25.jpg" 30)
+                ("/tmp/photo3_q64.jpg" 15)
+                ("/tmp/photo3_q25.jpg" 15)))
+  (let* ((f (first item))
+         (reps (second item))
+         (size (with-open-file (s f) (file-length s)))
+         (ms-scalar (bench-file f reps :simd :on :idct-simd nil))
+         (ms-simd   (bench-file f reps :simd :on :idct-simd t)))
+    (format t " ~23A | ~12:D | ~8,2F ms | ~8,2F ms | ~5,2Fx~%"
+            (file-namestring f) size ms-scalar ms-simd (/ ms-scalar ms-simd))))
+
+(sb-ext:exit :code 0)
