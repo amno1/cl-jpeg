@@ -1,9 +1,7 @@
-[![Build Status](https://travis-ci.org/sharplispers/cl-jpeg.svg?branch=master)](https://travis-ci.org/sharplispers/cl-jpeg)
-
 # CL-JPEG
-Baseline JPEG codec written in Common Lisp. Up-to-date source is hosted on [GitHub](https://github.com/sharplispers/cl-jpeg).
+Baseline JPEG codec written in Common Lisp.
 
-Written by Eugene Zaikonnikov, 1999-2017. Valuable contributors, in no particular order: Henry Harrington, Kenan Bölükbaşı, Manuel Giraud, Cyrus Harmon and William Halliburton.
+This particular version is fork of [GitHub](https://github.com/sharplispers/cl-jpeg), written by Eugene Zaikonnikov, 1999-2017. Valuable contributors, in no particular order: Henry Harrington, Kenan Bölükbaşı, Manuel Giraud, Cyrus Harmon and William Halliburton.
 
 ## Image Format
 
@@ -12,11 +10,9 @@ Written by Eugene Zaikonnikov, 1999-2017. Valuable contributors, in no particula
 * array of grayscale pixels in case of single component
 * array of 2 or 4 pixels in the case of two or four component image respectively
 
+This particular version is my personal playground to play with SIMD, AVX-512 and LLMs with SBCL.
 
-
-## Performance & SIMD Acceleration (v3.0.0+)
-
-Starting with version 3.0.0, CL-JPEG includes SIMD acceleration for x86-64:
+Currently SIMD acceleration includes:
 
 * **AVX2 Forward DCT (Encoder)**: Accelerated 8x8 2D LLM-DCT using register transposes. Delivers 5.13x DCT kernel speedup (2.80 Gpix/s) and provides 100% bit-for-bit mathematical equivalence with scalar CL-JPEG output.
 
@@ -36,15 +32,17 @@ SIMD acceleration is enabled automatically when supported hardware is detected a
 * `:on`   - Force SIMD kernels.
 * `:off`  - Disable SIMD and force scalar execution.
 
-### Breaking Change: Chroma Bias & Bit Exactness Notice (v3.0.0)
+### Breaking Change: Chroma Bias & Bit Exactness Notice
 
-In version 3.0.0, the decoder lookup tables (`+cr-r-tab+`, `+cb-g-tab+`, `+cr-g-tab+`, `+cb-b-tab+`) were updated to use standard JFIF chroma zero bias 128 instead of legacy 127.
+In SIMD version, the decoder lookup tables (`+cr-r-tab+`, `+cb-g-tab+`, `+cr-g-tab+`, `+cb-b-tab+`) were updated to use standard JFIF chroma zero bias 128 instead of legacy 127.
 
 - Decoded output differs from previous versions (<= 2.8.x) by <= 1 LSB per channel. Callers performing round-trip pixel-exact assertions against older CL-JPEG output should be aware that output now strictly adheres to the JFIF specification.
 
 - Because the scalar path uses 54-bit fixed point (shift = 54) and the SIMD path uses 15-bit `vpmulhrsw`, the two paths differ by +/- 1 LSB on approximately 8% of pixels (where two-step vs one-step rounding straddles a rounding boundary). Both paths are JFIF-compliant. Do not attempt to eliminate this difference; doing so would require either slower 32-bit SIMD arithmetic or matching the scalar rounding exactly (not expressible with `vpmulhrsw`).
 
 - SIMD acceleration requires the fixed scalar tables to agree within +/- 1 LSB.
+
+The rest below is the original README.md from the original source:
 
 ## Decoding
 
