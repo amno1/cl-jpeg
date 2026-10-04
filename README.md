@@ -1,7 +1,7 @@
 # CL-JPEG
 Baseline JPEG codec written in Common Lisp.
 
-This particular version is fork of [GitHub](https://github.com/sharplispers/cl-jpeg), written by Eugene Zaikonnikov, 1999-2017. Valuable contributors, in no particular order: Henry Harrington, Kenan Bölükbaşı, Manuel Giraud, Cyrus Harmon and William Halliburton.
+This particular version is fork of [cl-jpeg](https://github.com/sharplispers/cl-jpeg), written by Eugene Zaikonnikov, 1999-2017. Valuable contributors, in no particular order: Henry Harrington, Kenan Bölükbaşı, Manuel Giraud, Cyrus Harmon and William Halliburton.
 
 ## Image Format
 
